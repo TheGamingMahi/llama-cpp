@@ -26,6 +26,12 @@ jobs:
             libssl-dev libffi-dev zlib1g-dev libbz2-dev \
             libreadline-dev libsqlite3-dev liblzma-dev
 
+      - name: Fix libcuda.so.1 stub
+        run: |
+          ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+          echo "/usr/local/cuda/lib64/stubs" >> /etc/ld.so.conf.d/cuda-stubs.conf
+          ldconfig
+
       - name: Install Python 3.12 via pyenv
         run: |
           curl https://pyenv.run | bash
@@ -44,6 +50,7 @@ jobs:
           PATH: "/usr/local/cuda/bin:/root/.pyenv/shims:/root/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
           CMAKE_ARGS: "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75 -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc"
           FORCE_CMAKE: "1"
+          LDFLAGS: "-L/usr/local/cuda/lib64/stubs"
         run: |
           python3.12 -m pip wheel llama-cpp-python==0.3.16 \
             --wheel-dir /wheels \
