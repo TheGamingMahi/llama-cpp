@@ -36,15 +36,14 @@ jobs:
           pyenv global 3.12.9
           python --version
           python -m pip install --upgrade pip setuptools wheel
-          # Make python3.12 available globally
           ln -s "$PYENV_ROOT/shims/python" /usr/local/bin/python3.12
 
       - name: Build llama-cpp-python wheel with CUDA
         env:
-          CMAKE_ARGS: "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75"
-          FORCE_CMAKE: "1"
           PYENV_ROOT: "/root/.pyenv"
-          PATH: "/root/.pyenv/shims:/root/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          PATH: "/usr/local/cuda/bin:/root/.pyenv/shims:/root/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          CMAKE_ARGS: "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75 -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc"
+          FORCE_CMAKE: "1"
         run: |
           python3.12 -m pip wheel llama-cpp-python==0.3.16 \
             --wheel-dir /wheels \
