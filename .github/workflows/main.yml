@@ -3,6 +3,9 @@ name: Build llama-cpp-python CUDA Wheel
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,19 +15,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install Python & dependencies
+      - name: Install Python 3.12 & dependencies
         run: |
           apt-get update
-          apt-get install -y software-properties-common
-          add-apt-repository ppa:deadsnakes/ppa -y
+          apt-get install -y gnupg curl ca-certificates cmake ninja-build build-essential git
+          # Manually add deadsnakes PPA (add-apt-repository is unreliable in containers)
+          curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xF23C5A6CF475977595C89F51BA6932366A755776" \
+            | gpg --dearmor -o /etc/apt/trusted.gpg.d/deadsnakes.gpg
+          echo "deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" \
+            > /etc/apt/sources.list.d/deadsnakes.list
           apt-get update
-          apt-get install -y python3.12 python3.12-dev python3.12-venv \
-            cmake build-essential git curl
+          apt-get install -y python3.12 python3.12-dev python3.12-venv python3.12-distutils
           python3.12 -m ensurepip --upgrade
           python3.12 -m pip install --upgrade pip setuptools wheel
 
-      - name: Install llama-cpp-python with CUDA
+      - name: Build llama-cpp-python wheel with CUDA
         env:
           CMAKE_ARGS: "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75"
           FORCE_CMAKE: "1"
