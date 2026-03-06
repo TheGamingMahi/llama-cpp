@@ -18,24 +18,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Python 3.12 & dependencies
+      - name: Install system dependencies
         run: |
           apt-get update
-          apt-get install -y gnupg curl ca-certificates cmake ninja-build build-essential git
-          # Manually add deadsnakes PPA (add-apt-repository is unreliable in containers)
-          curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xF23C5A6CF475977595C89F51BA6932366A755776" \
-            | gpg --dearmor -o /etc/apt/trusted.gpg.d/deadsnakes.gpg
-          echo "deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" \
-            > /etc/apt/sources.list.d/deadsnakes.list
-          apt-get update
-          apt-get install -y python3.12 python3.12-dev python3.12-venv python3.12-distutils
-          python3.12 -m ensurepip --upgrade
-          python3.12 -m pip install --upgrade pip setuptools wheel
+          apt-get install -y \
+            curl git cmake ninja-build build-essential \
+            libssl-dev libffi-dev zlib1g-dev libbz2-dev \
+            libreadline-dev libsqlite3-dev liblzma-dev
+
+      - name: Install Python 3.12 via pyenv
+        run: |
+          curl https://pyenv.run | bash
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init -)"
+          pyenv install 3.12.9
+          pyenv global 3.12.9
+          python --version
+          python -m pip install --upgrade pip setuptools wheel
+          # Make python3.12 available globally
+          ln -s "$PYENV_ROOT/shims/python" /usr/local/bin/python3.12
 
       - name: Build llama-cpp-python wheel with CUDA
         env:
           CMAKE_ARGS: "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75"
           FORCE_CMAKE: "1"
+          PYENV_ROOT: "/root/.pyenv"
+          PATH: "/root/.pyenv/shims:/root/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         run: |
           python3.12 -m pip wheel llama-cpp-python==0.3.16 \
             --wheel-dir /wheels \
