@@ -16,6 +16,9 @@ jobs:
       - name: Install Python & dependencies
         run: |
           apt-get update
+          apt-get install -y software-properties-common
+          add-apt-repository ppa:deadsnakes/ppa -y
+          apt-get update
           apt-get install -y python3.12 python3.12-dev python3.12-venv \
             cmake build-essential git curl
           python3.12 -m ensurepip --upgrade
@@ -67,4 +70,3 @@ jobs:
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
