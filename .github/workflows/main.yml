@@ -47,7 +47,7 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           ln -s "$PYENV_ROOT/shims/python" /usr/local/bin/python3.12
 
-      - name: Build llama-cpp-python wheel with CUDA
+      - name: Build llama-cpp-python wheel with CUDA (Gemma 3 fork)
         env:
           PYENV_ROOT: "/root/.pyenv"
           PATH: "/usr/local/cuda/bin:/root/.pyenv/shims:/root/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -55,7 +55,11 @@ jobs:
           FORCE_CMAKE: "1"
           LDFLAGS: "-L/usr/local/cuda/lib64/stubs"
         run: |
-          python3.12 -m pip wheel llama-cpp-python==0.3.31 \
+          git clone https://github.com/IgorAherne/llama-cpp-python-gemma3.git
+          cd llama-cpp-python-gemma3
+          git submodule update --init --recursive
+          python3.12 -m pip wheel . \
+            --no-deps \
             --wheel-dir /wheels \
             --verbose
 
@@ -65,7 +69,7 @@ jobs:
       - name: Upload wheel as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llama-cpp-python-cu128-cp312-v2
+          name: llama-cpp-python-cu128-cp312-gemma3
           path: /wheels/*.whl
           retention-days: 90
 
@@ -73,23 +77,23 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag -f cu128-cp312-v2
-          git push origin cu128-cp312-v2 --force
+          git tag -f cu128-cp312-gemma3
+          git push origin cu128-cp312-gemma3 --force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: cu128-cp312-v2
-          name: "llama-cpp-python CUDA 12.8 Python 3.12 (v2)"
+          tag_name: cu128-cp312-gemma3
+          name: "llama-cpp-python CUDA 12.8 Python 3.12 (Gemma 3)"
           files: /wheels/*.whl
           body: |
             Prebuilt llama-cpp-python wheel for:
             - Python 3.12 (cp312)
             - CUDA 12.8
             - Linux x86_64
-            - Gemma 3 tokenizer support ✅ (0.3.31+)
+            - Gemma 3 tokenizer support ✅ (IgorAherne/llama-cpp-python-gemma3)
 
             Install with:
             ```
