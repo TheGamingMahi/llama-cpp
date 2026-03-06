@@ -1,0 +1,57 @@
+name: Build llama-cpp-python CUDA Wheel
+
+on:
+  workflow_dispatch:  # Run manually from GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: nvidia/cuda:12.8.0-devel-ubuntu22.04
+
+    steps:
+      - name: Install Python & dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3.12 python3.12-dev python3-pip python3.12-venv cmake build-essential git curl
+          python3.12 -m pip install --upgrade pip setuptools wheel
+
+      - name: Install llama-cpp-python with CUDA
+        env:
+          CMAKE_ARGS: "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75"
+          FORCE_CMAKE: "1"
+        run: |
+          python3.12 -m pip wheel llama-cpp-python==0.3.16 \
+            --no-deps \
+            --wheel-dir /wheels \
+            --verbose
+
+      - name: List built wheels
+        run: ls -lh /wheels/
+
+      - name: Upload wheel as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-cpp-python-cu128-cp312
+          path: /wheels/*.whl
+          retention-days: 90
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: cu128-cp312
+          name: llama-cpp-python CUDA 12.8 Python 3.12
+          files: /wheels/*.whl
+          body: |
+            Prebuilt llama-cpp-python wheel for:
+            - Python 3.12 (cp312)
+            - CUDA 12.8
+            - Linux x86_64
+            - Gemma 3 support ✅
+            
+            Install with:
+            ```
+            pip install <url-to-whl-file>
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
