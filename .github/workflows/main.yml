@@ -18,6 +18,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fix git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Install system dependencies
         run: |
           apt-get update
@@ -52,7 +55,7 @@ jobs:
           FORCE_CMAKE: "1"
           LDFLAGS: "-L/usr/local/cuda/lib64/stubs"
         run: |
-          python3.12 -m pip wheel llama-cpp-python==0.3.16 \
+          python3.12 -m pip wheel llama-cpp-python==0.3.31 \
             --wheel-dir /wheels \
             --verbose
 
@@ -62,7 +65,7 @@ jobs:
       - name: Upload wheel as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llama-cpp-python-cu128-cp312
+          name: llama-cpp-python-cu128-cp312-v2
           path: /wheels/*.whl
           retention-days: 90
 
@@ -70,22 +73,23 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag -f cu128-cp312
-          git push origin cu128-cp312 --force
+          git tag -f cu128-cp312-v2
+          git push origin cu128-cp312-v2 --force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: cu128-cp312
-          name: "llama-cpp-python CUDA 12.8 Python 3.12"
+          tag_name: cu128-cp312-v2
+          name: "llama-cpp-python CUDA 12.8 Python 3.12 (v2)"
           files: /wheels/*.whl
           body: |
             Prebuilt llama-cpp-python wheel for:
             - Python 3.12 (cp312)
             - CUDA 12.8
             - Linux x86_64
+            - Gemma 3 tokenizer support ✅ (0.3.31+)
 
             Install with:
             ```
