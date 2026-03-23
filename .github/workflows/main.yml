@@ -1,4 +1,4 @@
-name: Build CPU Wheel
+name: Build CPU Wheel (Fast)
 
 on: [workflow_dispatch]
 
@@ -21,18 +21,33 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt install -y libopenblas-dev
-          pip install build
+          sudo apt install -y \
+            libopenblas-dev \
+            build-essential \
+            cmake \
+            patchelf
+
+          pip install build auditwheel
 
       - name: Build wheel
         run: python -m build --wheel
         env:
-          CMAKE_ARGS: "-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS"
+          CMAKE_ARGS: >-
+            -DGGML_BLAS=ON
+            -DGGML_BLAS_VENDOR=OpenBLAS
+            -DGGML_AVX=ON
+            -DGGML_AVX2=ON
+            -DGGML_F16C=ON
+            -DGGML_FMA=ON
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Bundle libs (auditwheel)
+        run: auditwheel repair dist/*.whl --wheel-dir dist/fixed/
 
       - name: Upload release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: cpu-latest
-          files: dist/*.whl
+          files: dist/fixed/*.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
