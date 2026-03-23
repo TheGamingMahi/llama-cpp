@@ -1,103 +1,35 @@
-name: Build llama-cpp-python CUDA Wheel
+name: Build CPU Wheel
 
-on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
+on: [workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: nvidia/cuda:12.8.0-devel-ubuntu22.04
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          repository: abetlen/llama-cpp-python
+          submodules: recursive
 
-      - name: Install system dependencies
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y \
-            curl git cmake ninja-build build-essential \
-            libssl-dev libffi-dev zlib1g-dev libbz2-dev \
-            libreadline-dev libsqlite3-dev liblzma-dev
+          sudo apt install -y libopenblas-dev
+          pip install build
 
-      - name: Fix git safe directory
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Fix libcuda.so.1 stub
-        run: |
-          ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
-          echo "/usr/local/cuda/lib64/stubs" >> /etc/ld.so.conf.d/cuda-stubs.conf
-          ldconfig
-
-      - name: Install Python 3.12 via pyenv
-        run: |
-          curl https://pyenv.run | bash
-          export PYENV_ROOT="$HOME/.pyenv"
-          export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init -)"
-          pyenv install 3.12.9
-          pyenv global 3.12.9
-          python --version
-          python -m pip install --upgrade pip setuptools wheel
-          ln -s "$PYENV_ROOT/shims/python" /usr/local/bin/python3.12
-
-      - name: Build llama-cpp-python wheel with CUDA (Gemma 3 fork)
+      - name: Build wheel
+        run: python -m build --wheel
         env:
-          PYENV_ROOT: "/root/.pyenv"
-          PATH: "/usr/local/cuda/bin:/root/.pyenv/shims:/root/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-          CMAKE_ARGS: "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75 -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc"
-          FORCE_CMAKE: "1"
-          LDFLAGS: "-L/usr/local/cuda/lib64/stubs"
-        run: |
-          git clone https://github.com/IgorAherne/llama-cpp-python-gemma3.git
-          cd llama-cpp-python-gemma3
-          git submodule update --init --recursive
-          python3.12 -m pip wheel . \
-            --no-deps \
-            --wheel-dir /wheels \
-            --verbose
+          CMAKE_ARGS: "-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS"
 
-      - name: List built wheels
-        run: ls -lh /wheels/
-
-      - name: Upload wheel as artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload release
+        uses: softprops/action-gh-release@v2
         with:
-          name: llama-cpp-python-cu128-cp312-gemma3
-          path: /wheels/*.whl
-          retention-days: 90
-
-      - name: Create Git tag
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag -f cu128-cp312-gemma3
-          git push origin cu128-cp312-gemma3 --force
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: cu128-cp312-gemma3
-          name: "llama-cpp-python CUDA 12.8 Python 3.12 (Gemma 3)"
-          files: /wheels/*.whl
-          body: |
-            Prebuilt llama-cpp-python wheel for:
-            - Python 3.12 (cp312)
-            - CUDA 12.8
-            - Linux x86_64
-            - Gemma 3 tokenizer support ✅ (IgorAherne/llama-cpp-python-gemma3)
-
-            Install with:
-            ```
-            pip install <url-to-whl-file>
-            ```
+          tag_name: cpu-latest
+          files: dist/*.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
