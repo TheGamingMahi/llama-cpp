@@ -11,17 +11,18 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: abetlen/llama-cpp-python
-          submodules: recursive
+      - name: Checkout llama-cpp-python
+        run: |
+          yum install -y git
+          git clone --recurse-submodules https://github.com/abetlen/llama-cpp-python.git /src
 
       - name: Install dependencies
         run: |
-          yum install -y openblas-devel
+          yum install -y openblas-devel cmake
           /opt/python/cp313-cp313/bin/pip install build "auditwheel>=5.0"
 
       - name: Build wheel
+        working-directory: /src
         run: /opt/python/cp313-cp313/bin/python -m build --wheel
         env:
           CMAKE_ARGS: >-
@@ -35,30 +36,43 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Bundle libs (auditwheel)
+        working-directory: /src
         run: /opt/python/cp313-cp313/bin/auditwheel repair dist/*.whl --plat manylinux_2_28_x86_64 --wheel-dir dist/fixed/
 
-      - name: Get wheel name
-        id: wheel
-        run: echo "name=$(ls dist/fixed/*.whl | xargs basename)" >> $GITHUB_OUTPUT
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: /src/dist/fixed/*.whl
 
-      - name: Get version
-        id: version
-        run: echo "ver=$(ls dist/fixed/*.whl | grep -oP '\d+\.\d+\.\d+')" >> $GITHUB_OUTPUT
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist/
+
+      - name: Get wheel info
+        id: info
+        run: |
+          echo "name=$(ls dist/*.whl | xargs basename)" >> $GITHUB_OUTPUT
+          echo "ver=$(ls dist/*.whl | grep -oP '\d+\.\d+\.\d+')" >> $GITHUB_OUTPUT
 
       - name: Upload release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: cpu-v${{ steps.version.outputs.ver }}-manylinux2_28
-          name: "CPU Build v${{ steps.version.outputs.ver }} (manylinux2_28)"
+          tag_name: cpu-v${{ steps.info.outputs.ver }}-manylinux2_28
+          name: "CPU Build v${{ steps.info.outputs.ver }} (manylinux2_28)"
           body: |
             CPU-only wheel for Python 3.13, Linux x86_64
             Built with OpenBLAS, AVX2, FMA, F16C
-            Compatible with HF Spaces free tier (manylinux_2_28)
-
-            Install:
-            ```
-            pip install https://github.com/TheGamingMahi/llama-cpp/releases/download/cpu-v${{ steps.version.outputs.ver }}-manylinux2_28/${{ steps.wheel.outputs.name }}
-            ```
-          files: dist/fixed/*.whl
+            Compatible with HF Spaces free tier
+```
+            pip install https://github.com/TheGamingMahi/llama-cpp/releases/download/cpu-v${{ steps.info.outputs.ver }}-manylinux2_28/${{ steps.info.outputs.name }}
+```
+          files: dist/*.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
