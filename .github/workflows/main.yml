@@ -1,4 +1,4 @@
-name: Build CPU Wheel (Fast)
+name: Build CPU Wheel
 
 on: [workflow_dispatch]
 
@@ -26,8 +26,7 @@ jobs:
             build-essential \
             cmake \
             patchelf
-
-          pip install build auditwheel
+          pip install build "auditwheel>=5.0"
 
       - name: Build wheel
         run: python -m build --wheel
@@ -35,6 +34,7 @@ jobs:
           CMAKE_ARGS: >-
             -DGGML_BLAS=ON
             -DGGML_BLAS_VENDOR=OpenBLAS
+            -DGGML_NATIVE=OFF
             -DGGML_AVX=ON
             -DGGML_AVX2=ON
             -DGGML_F16C=ON
@@ -42,12 +42,30 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Bundle libs (auditwheel)
-        run: auditwheel repair dist/*.whl --wheel-dir dist/fixed/
+        run: auditwheel repair dist/*.whl --plat manylinux_2_17_x86_64 --wheel-dir dist/fixed/
+
+      - name: Get wheel name
+        id: wheel
+        run: echo "name=$(ls dist/fixed/*.whl | xargs basename)" >> $GITHUB_OUTPUT
+
+      - name: Get version
+        id: version
+        run: echo "ver=$(ls dist/fixed/*.whl | grep -oP '\d+\.\d+\.\d+')" >> $GITHUB_OUTPUT
 
       - name: Upload release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: cpu-latest
+          tag_name: cpu-v${{ steps.version.outputs.ver }}-manylinux2_17
+          name: "CPU Build v${{ steps.version.outputs.ver }} (manylinux2_17)"
+          body: |
+            CPU-only wheel for Python 3.13, Linux x86_64
+            Built with OpenBLAS, AVX2, FMA, F16C
+            Compatible with HF Spaces free tier (manylinux_2_17)
+
+            Install:
+            ```
+            pip install https://github.com/TheGamingMahi/llama-cpp/releases/download/cpu-v${{ steps.version.outputs.ver }}-manylinux2_17/${{ steps.wheel.outputs.name }}
+            ```
           files: dist/fixed/*.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
