@@ -70,9 +70,7 @@ jobs:
             CPU-only wheel for Python 3.13, Linux x86_64
             Built with OpenBLAS, AVX2, FMA, F16C
             Compatible with HF Spaces free tier
-```
             pip install https://github.com/TheGamingMahi/llama-cpp/releases/download/cpu-v${{ steps.info.outputs.ver }}-manylinux2_28/${{ steps.info.outputs.name }}
-```
           files: dist/*.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
