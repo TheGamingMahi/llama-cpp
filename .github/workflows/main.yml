@@ -8,6 +8,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
 
     steps:
       - uses: actions/checkout@v4
@@ -15,21 +16,13 @@ jobs:
           repository: abetlen/llama-cpp-python
           submodules: recursive
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
       - name: Install dependencies
         run: |
-          sudo apt install -y \
-            libopenblas-dev \
-            build-essential \
-            cmake \
-            patchelf
-          pip install build "auditwheel>=5.0"
+          yum install -y openblas-devel
+          /opt/python/cp313-cp313/bin/pip install build "auditwheel>=5.0"
 
       - name: Build wheel
-        run: python -m build --wheel
+        run: /opt/python/cp313-cp313/bin/python -m build --wheel
         env:
           CMAKE_ARGS: >-
             -DGGML_BLAS=ON
@@ -42,7 +35,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Bundle libs (auditwheel)
-        run: auditwheel repair dist/*.whl --plat manylinux_2_17_x86_64 --wheel-dir dist/fixed/
+        run: /opt/python/cp313-cp313/bin/auditwheel repair dist/*.whl --plat manylinux_2_28_x86_64 --wheel-dir dist/fixed/
 
       - name: Get wheel name
         id: wheel
@@ -55,16 +48,16 @@ jobs:
       - name: Upload release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: cpu-v${{ steps.version.outputs.ver }}-manylinux2_17
-          name: "CPU Build v${{ steps.version.outputs.ver }} (manylinux2_17)"
+          tag_name: cpu-v${{ steps.version.outputs.ver }}-manylinux2_28
+          name: "CPU Build v${{ steps.version.outputs.ver }} (manylinux2_28)"
           body: |
             CPU-only wheel for Python 3.13, Linux x86_64
             Built with OpenBLAS, AVX2, FMA, F16C
-            Compatible with HF Spaces free tier (manylinux_2_17)
+            Compatible with HF Spaces free tier (manylinux_2_28)
 
             Install:
             ```
-            pip install https://github.com/TheGamingMahi/llama-cpp/releases/download/cpu-v${{ steps.version.outputs.ver }}-manylinux2_17/${{ steps.wheel.outputs.name }}
+            pip install https://github.com/TheGamingMahi/llama-cpp/releases/download/cpu-v${{ steps.version.outputs.ver }}-manylinux2_28/${{ steps.wheel.outputs.name }}
             ```
           files: dist/fixed/*.whl
         env:
